@@ -16,6 +16,7 @@ let name = "%%NAME%%"
 let usage = "Usage: " ^ name ^ " [option] ... <model_file.stan[functions]>"
 
 let model_file = ref ""
+let marginalize = ref false
 let pretty_print_program = ref false
 let pretty_print_line_length = ref 78
 let print_info_json = ref false
@@ -137,6 +138,9 @@ let options =
     ; ( "--auto-format"
       , Arg.Set pretty_print_program
       , " Pretty prints a formatted version of the Stan program." )
+    ; ( "--marginalize"
+      , Arg.Set marginalize
+      , " Automatically marginalizing using conjugacy." )
     ; ( "--canonicalize"
       , Arg.String
           (fun s ->
@@ -293,6 +297,16 @@ let use_file filename =
          ~bare_functions:!bare_functions ~line_length:!pretty_print_line_length
          ~inline_includes:!canonicalize_settings.inline_includes canonical_ast
          ~strip_comments:!canonicalize_settings.strip_comments);
+  if !marginalize then (
+    let marginalized_file = ((remove_dotstan filename)^"_optimized.stan") in
+    let optimized_ast = Marginalize.marginalize canonical_ast in 
+    List.iter ~f:(fun (name, res) -> (print_endline (name^":"); List.iter ~f:(print_endline) res)) optimized_ast;
+    Out_channel.write_all marginalized_file 
+    ~data:(Pretty_printing.pretty_print_typed_program
+       ~bare_functions:!bare_functions ~line_length:!pretty_print_line_length
+       ~inline_includes:!canonicalize_settings.inline_includes canonical_ast
+       ~strip_comments:!canonicalize_settings.strip_comments);
+    exit 0);
   if !print_info_json then (
     print_endline (Info.info canonical_ast);
     exit 0);
