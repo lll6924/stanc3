@@ -162,41 +162,42 @@ let process_truncation t =
   match t with
     | NoTruncate -> ("",[])
     | TruncateUpFrom e -> 
-      let (final, exprs) = process_expression e in
+      let (final, exprs) = process_expression e.expr in
       (final^">", exprs)
     | TruncateDownFrom  e ->
-      let (final, exprs) = process_expression e in
+      let (final, exprs) = process_expression e.expr in
       ("<" ^ final, exprs)
     | TruncateBetween (e1, e2) ->
-      let (final1, exprs1) = process_expression e1 in
-      let (final2, exprs2) = process_expression e2 in
+      let (final1, exprs1) = process_expression e1.expr in
+      let (final2, exprs2) = process_expression e2.expr in
       (final1^"><"^final2, List.append exprs1 exprs2)
 
-let rec process_statement name s_content
+let rec process_statement name ({stmt= s_content; _} : typed_statement)
     =
   match s_content with
   | Assignment {assign_lhs= l; assign_op= _; assign_rhs= e} ->
       let dest = process_lvalue l in
-      let (final, exprs) = process_expression e in
+      let (final, exprs) = process_expression e.expr in
       List.append exprs [dest ^ "=" ^ final]
   | NRFunApp (_, _, es) ->
-      (*let processed_ex = List.map ~f:(fun (x,y) -> x) es in *)
-      let (exprs, _) = process_list_of_expression es in
+      let processed_ex = List.map ~f:(fun (x) -> x.expr) es in 
+      let (exprs, _) = process_list_of_expression processed_ex in
       exprs
   | TargetPE e -> 
-      let (_, exprs) = process_expression e in
+      let (_, exprs) = process_expression e.expr in
       exprs
   | Tilde {arg= e; distribution= id; args= es; truncation= t} ->
-      let (dest, _) = process_expression e in
+      let (dest, _) = process_expression e.expr in
       let dist = process_identifier id in
-      let (finals, exprs) = process_list_of_expression es in
+      let processed_ex = List.map ~f:(fun (x) -> x.expr) es in 
+      let (finals, exprs) = process_list_of_expression processed_ex in
       let (truc, truncexprs) = process_truncation t in
       let fns = String.concat ~sep:"*" finals in 
       List.append (List.append exprs truncexprs) [dest ^ "=" ^dist ^ ":" ^ truc ^  "-" ^ fns]
   | Break -> []
   | Continue -> []
   | Return e -> 
-      let (_, exprs) = process_expression e in
+      let (_, exprs) = process_expression e.expr in
       exprs
   | ReturnVoid -> []
   | Print _ -> []
@@ -204,8 +205,8 @@ let rec process_statement name s_content
   | Skip -> []
   | IfThenElse (_, _, _) -> []
   (*process_recursive_ifthenelse ppf s_content*)    
-  | While (e, { smeta = _ ; stmt }) -> 
-      let (_, exprs) = process_expression e in
+  | While (e, stmt) -> 
+      let (_, exprs) = process_expression e.expr in
       let res = process_statement name stmt in
       List.append exprs res
   (*| For {loop_variable= id; lower_bound= e1; upper_bound= e2; loop_body= s} ->
@@ -233,7 +234,7 @@ let rec process_statement name s_content
 
 and process_list_of_statements name stmts =
   match stmts with
-  | {smeta= _; stmt} :: l -> 
+  | stmt :: l -> 
     let res1 = process_statement name stmt in
     (*let res1 = ["a"] in*)
     let res2 = process_list_of_statements name l in
