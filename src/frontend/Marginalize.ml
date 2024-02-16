@@ -66,7 +66,7 @@ and process_list_of_expression es =
     let (final1,res1) = process_expression e in
     let (final2,res2) = process_list_of_expression l in
     let res = List.append res1 res2 in 
-    let final = List.append final2 [final1] in 
+    let final = List.append [final1] final2 in 
     (final, res)
   | [] -> ([],[])
 
@@ -104,8 +104,9 @@ and process_expression e
   | FunApp (_, id, es) ->
       let funid = process_identifier id in
       let eprs = List.map ~f:(fun (x) -> x.expr) es in
-      let (_,exprs) = process_list_of_expression eprs in
-      ("function "^funid, exprs)
+      let (finals,exprs) = process_list_of_expression eprs in
+      let pars = String.concat ~sep:"," finals in
+      ("function "^funid ^ " " ^ pars, exprs)
   | CondDistApp (_, id, es) -> (
       match es with
       | [] ->
@@ -192,8 +193,8 @@ let rec process_statement name ({stmt= s_content; _} : typed_statement)
       let processed_ex = List.map ~f:(fun (x) -> x.expr) es in 
       let (finals, exprs) = process_list_of_expression processed_ex in
       let (truc, truncexprs) = process_truncation t in
-      let fns = String.concat ~sep:"*" finals in 
-      List.append (List.append exprs truncexprs) [dest ^ "=" ^dist ^ ":" ^ truc ^  "-" ^ fns]
+      let fns = String.concat ~sep:"," finals in 
+      List.append (List.append exprs truncexprs) [dest ^ "=" ^dist ^ ":" ^ truc ^  "--" ^ fns]
   | Break -> []
   | Continue -> []
   | Return e -> 
